@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 
-// Definindo a interface para as props do componente
 interface SearchBarProps {
-  onSearch: (query: string) => void; // Espera uma função que recebe uma string
+  onSearch: (query: string) => void;
   isLoading: boolean;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
   const [query, setQuery] = useState<string>('');
 
-  // Tipando o evento do formulário
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSearch(query);
@@ -44,11 +42,10 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
           id="search"
           type="text"
           value={query}
-          // Tipando o evento de mudança do input
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setQuery(e.target.value)
           }
-          disabled={isLoading} // Desabilita o input durante a busca
+          disabled={isLoading}
           className="block w-full bg-white border border-gray-300 rounded-full py-3 pl-10 pr-28 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-200"
           placeholder="Ex: Crepúsculo, Interestelar..."
         />

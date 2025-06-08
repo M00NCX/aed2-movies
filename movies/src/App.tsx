@@ -4,10 +4,9 @@ import axios from 'axios';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 
-import type { RecommendationResponse } from './/types/movie';
+import type { RecommendationResponse } from './types/movie';
 
 const App: React.FC = () => {
-  // Tipando os estados com useState
   const [results, setResults] = useState<RecommendationResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,12 +19,8 @@ const App: React.FC = () => {
     setResults(null);
 
     try {
-      // A URL da sua API FastAPI
       const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`;
-
-      // Informamos ao axios o tipo de resposta esperado
       const response = await axios.get<RecommendationResponse>(apiUrl);
-
       setResults(response.data);
     } catch (err) {
       console.error('Erro ao buscar recomendações:', err);
@@ -37,55 +32,95 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGoBack = () => {
+    setResults(null);
+    setError(null);
+  };
+
   return (
-    <div className="min-h-screen bg-pink-50">
+    <div className="h-screen bg-pink-50 flex flex-col overflow-hidden">
       <Header />
-      <main className="container mx-auto px-4 py-16 flex flex-col items-center justify-center gap-12">
-        <div className="text-center w-full max-w-2xl">
-          <h2 className="text-xl font-semibold text-gray-600">
-            Projeto algoritmos e estruturas de dados
-          </h2>
-          <h1 className="mt-2 text-4xl md:text-5xl font-extrabold text-gray-800 leading-tight">
-            Encontre <span className="text-purple-600">filmes similares</span>{' '}
-            com algoritmos inteligentes
-          </h1>
-          <div className="mt-8 mx-auto">
-            <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+
+      <main className="flex-1 container mx-auto flex flex-col justify-center items-center p-4">
+        {!results && !isLoading && !error && (
+          <div className="w-full max-w-5xl flex flex-col items-center justify-center gap-10 ">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-gray-600">
+                Projeto algoritmos e estruturas de dados
+              </h2>
+              <h1 className="mt-2 text-4xl md:text-5xl font-extrabold text-gray-800 leading-tight">
+                Encontre filmes similares com <br />
+                <span className="text-purple-600">algoritmos inteligentes</span>
+              </h1>
+            </div>
+
+            <div className="w-full flex flex-col md:flex-row items-center justify-center gap-8">
+              <div className="w-full md:w-1/2 flex justify-center md:justify-end">
+                <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+              </div>
+              <div className="hidden md:flex w-full md:w-1/2 justify-end">
+                <img src="/home.png" alt="home" width={400} />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Área de Resultados */}
-        <div className="w-full max-w-4xl mt-8">
-          {error && <p className="text-center text-red-500">{error}</p>}
+        {isLoading && (
+          <div className="text-center">
+            <p className="text-xl font-semibold text-purple-600">
+              Buscando recomendações...
+            </p>
+          </div>
+        )}
 
-          {/* Aqui você renderizaria os resultados */}
-          {results && (
-            <div>
-              <h2 className="text-2xl font-bold text-center">
+        {error && !isLoading && (
+          <div className="text-center">
+            <p className="text-xl font-semibold text-red-500">{error}</p>
+            <button
+              onClick={handleGoBack}
+              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        )}
+
+        {results && (
+          <div className="w-full max-w-6xl flex flex-col h-full py-4">
+            <div className="flex justify-between items-center mb-4 px-2">
+              <h2 className="text-2xl font-bold text-gray-800">
                 Recomendações para{' '}
                 <span className="text-purple-600">
                   {results.searched_movie.title}
                 </span>
               </h2>
-              {/* Crie um componente MovieCard para mostrar cada filme */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
-                {results.recommendations.map((movie) => (
-                  <div
-                    key={movie.id}
-                    className="bg-white p-2 rounded-lg shadow"
-                  >
-                    <img
-                      src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                      alt={movie.title}
-                      className="rounded-md"
-                    />
-                    <h3 className="font-bold mt-2 text-sm">{movie.title}</h3>
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={handleGoBack}
+                className="px-4 py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200"
+              >
+                ← Nova Busca
+              </button>
             </div>
-          )}
-        </div>
+
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto pr-2">
+              {results.recommendations.map((movie) => (
+                <div
+                  key={movie.id}
+                  className="bg-white p-2 rounded-lg shadow transition-transform hover:scale-105"
+                >
+                  <img
+                    src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+                    alt={movie.title}
+                    className="rounded-md w-full object-cover"
+                  />
+                  <h3 className="font-bold mt-2 text-sm text-gray-800 truncate">
+                    {movie.title}
+                  </h3>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
