@@ -17,7 +17,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setResults(null);
-
+    //aqui foi a ia que disse pra colocar a busca quando for integrar com python no back
     try {
       const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`;
       const response = await axios.get<RecommendationResponse>(apiUrl);
@@ -64,7 +64,7 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
+        // abaixo também foi a ia
         {isLoading && (
           <div className="text-center">
             <p className="text-xl font-semibold text-purple-600">
@@ -72,7 +72,6 @@ const App: React.FC = () => {
             </p>
           </div>
         )}
-
         {error && !isLoading && (
           <div className="text-center">
             <p className="text-xl font-semibold text-red-500">{error}</p>
@@ -84,7 +83,6 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-
         {results && (
           <div className="w-full max-w-6xl flex flex-col h-full py-4">
             <div className="flex justify-between items-center mb-4 px-2">
