@@ -3,6 +3,7 @@ import axios from 'axios';
 
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
+import ResultsPage from './components/ResultsPage';
 
 import type { RecommendationResponse } from './types/movie';
 
@@ -16,17 +17,27 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    setResults(null);
-    //aqui foi a ia que disse pra colocar a busca quando for integrar com python no back
+    // setResults(null); // Vamos desativar isso por enquanto
+
     try {
-      const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`;
+      // MUDANÇA AQUI: A URL agora aponta para o SEU backend
+      // Ele que será o responsável por falar com o TMDB e o Neo4J
+      const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`; // Este deve ser seu endpoint final
+
+      // Exemplo de chamada para o endpoint de busca que criamos:
+      // const searchApiUrl = `http://127.0.0.1:8000/search-movie/${query}`;
+
+      // Você vai chamar seu endpoint principal que retorna as recomendações
       const response = await axios.get<RecommendationResponse>(apiUrl);
+
       setResults(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao buscar recomendações:', err);
-      setError(
-        'Não foi possível encontrar o filme ou obter recomendações. Tente novamente.'
-      );
+      // Pega a mensagem de erro vinda do FastAPI, se existir
+      const errorMessage =
+        err.response?.data?.detail ||
+        'Não foi possível obter recomendações. Tente novamente.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +75,6 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-        // abaixo também foi a ia
         {isLoading && (
           <div className="text-center">
             <p className="text-xl font-semibold text-purple-600">
@@ -83,42 +93,7 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-        {results && (
-          <div className="w-full max-w-6xl flex flex-col h-full py-4">
-            <div className="flex justify-between items-center mb-4 px-2">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Recomendações para{' '}
-                <span className="text-purple-600">
-                  {results.searched_movie.title}
-                </span>
-              </h2>
-              <button
-                onClick={handleGoBack}
-                className="px-4 py-2 bg-purple-100 text-purple-700 font-semibold rounded-lg hover:bg-purple-200"
-              >
-                ← Nova Busca
-              </button>
-            </div>
-
-            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 overflow-y-auto pr-2">
-              {results.recommendations.map((movie) => (
-                <div
-                  key={movie.id}
-                  className="bg-white p-2 rounded-lg shadow transition-transform hover:scale-105"
-                >
-                  <img
-                    src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
-                    alt={movie.title}
-                    className="rounded-md w-full object-cover"
-                  />
-                  <h3 className="font-bold mt-2 text-sm text-gray-800 truncate">
-                    {movie.title}
-                  </h3>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {results && <ResultsPage data={results} onGoBack={handleGoBack} />}
       </main>
     </div>
   );
