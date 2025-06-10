@@ -17,23 +17,15 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    // setResults(null); // Vamos desativar isso por enquanto
 
     try {
-      // MUDANÇA AQUI: A URL agora aponta para o SEU backend
-      // Ele que será o responsável por falar com o TMDB e o Neo4J
-      const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`; // Este deve ser seu endpoint final
+      const apiUrl = `http://127.0.0.1:8000/recommendations/${query}`;
 
-      // Exemplo de chamada para o endpoint de busca que criamos:
-      // const searchApiUrl = `http://127.0.0.1:8000/search-movie/${query}`;
-
-      // Você vai chamar seu endpoint principal que retorna as recomendações
       const response = await axios.get<RecommendationResponse>(apiUrl);
 
       setResults(response.data);
     } catch (err: any) {
       console.error('Erro ao buscar recomendações:', err);
-      // Pega a mensagem de erro vinda do FastAPI, se existir
       const errorMessage =
         err.response?.data?.detail ||
         'Não foi possível obter recomendações. Tente novamente.';

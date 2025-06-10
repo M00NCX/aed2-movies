@@ -1,4 +1,3 @@
-# src/main.py
 
 # --- 1. IMPORTS ---
 from fastapi import FastAPI, HTTPException
@@ -10,7 +9,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from neo4j import GraphDatabase, Driver
-# Assumindo que seu arquivo de algoritmo se chama aStar.py
 from .aStar import build_graph, a_star_search
 
 # --- 2. CONFIGURAÇÃO DA APLICAÇÃO E VARIÁVEIS GLOBAIS ---

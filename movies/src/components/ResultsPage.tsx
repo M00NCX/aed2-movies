@@ -1,38 +1,29 @@
-// src/pages/ResultsPage.tsx
-
 import React, { useState, useEffect, useMemo } from 'react';
 import type { RecommendationResponse, Movie } from '../types/movie';
 import axios from 'axios';
 
-// Imports da biblioteca Swiper para o carrossel
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Grid, Navigation } from 'swiper/modules';
 import type { Swiper as SwiperCore } from 'swiper/types';
 
-// Importa os arquivos de estilo CSS necessários para o Swiper
 import 'swiper/css';
 import 'swiper/css/grid';
 import 'swiper/css/navigation';
 
-// Importa os seus componentes customizados
 import MovieCard from '../components/MovieCard';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 
-// Define a "forma" das props que este componente espera receber
 interface ResultsPageProps {
   data: RecommendationResponse;
   onGoBack: () => void;
 }
 
-// Tipo para a lista de gêneros que vamos buscar da API
 type Genre = {
   id: number;
   name: string;
 };
 
 const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
-  // --- Estados do Componente ---
-
   const [allGenres, setAllGenres] = useState<Genre[]>([]);
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [filteredMovies, setFilteredMovies] = useState<Movie[]>(
@@ -41,8 +32,6 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
 
   const [swiperInstance, setSwiperInstance] = useState<SwiperCore | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-
-  // --- Efeitos (useEffect) e Memos (useMemo) ---
 
   const genreCounts = useMemo(() => {
     const counts: { [key: number]: number } = {};
@@ -85,7 +74,6 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
   return (
     <>
       <div className="w-full max-w-7xl mx-auto px-4 py-8">
-        {/* Cabeçalho da Página */}
         <div className="flex flex-col md:flex-row justify-between items-center my-4 gap-4">
           <h2 className="text-3xl font-bold text-gray-800 text-center md:text-left">
             Filmes similares a{' '}
@@ -127,10 +115,8 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
           </div>
         </div>
 
-        {/* Contêiner do Carrossel */}
         <div className="relative mt-8 min-h-[400px] group">
           {' '}
-          {/* Adicionado 'group' aqui para controlar a visibilidade dos botões */}
           <Swiper
             onSwiper={setSwiperInstance}
             modules={[Grid, Navigation]}
@@ -165,8 +151,6 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
               <p>Nenhum filme encontrado para o gênero selecionado.</p>
             </div>
           )}
-          {/* ---- CORREÇÃO AQUI ---- */}
-          {/* Adicionamos uma condição para renderizar os botões apenas se houver filmes */}
           {filteredMovies.length > 0 && (
             <>
               <button

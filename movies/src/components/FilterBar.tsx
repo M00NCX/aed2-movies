@@ -26,7 +26,6 @@ const FilterBar: React.FC<FilterBarProps> = ({ genres, onGenreChange }) => {
         </select>
       </div>
 
-      {/* Exemplo para um filtro de diretor */}
       {
         <div className="flex items-center gap-2">
           <label

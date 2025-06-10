@@ -3,14 +3,14 @@ import heapq
 import itertools
 
 class MovieNode:
-    """Representa um filme como um nó no grafo."""
+
     def __init__(self, movie: Dict):
             self.id = movie["id"]
             self.title = movie["title"]
             self.genres = movie.get("genre_ids", [])
             self.popularity = movie.get("popularity", 0)
             self.director = movie.get("director", None)
-            self.poster_url = movie.get("imageUrl")  # Ou o nome correto do campo
+            self.poster_url = movie.get("imageUrl") 
             self.neighbors: List[Tuple["MovieNode", float]] = []
 
 def build_graph(movies: List[Dict]) -> Dict[int, MovieNode]:
@@ -56,7 +56,7 @@ def a_star_search(graph: Dict[int, MovieNode], start_id: int, goal_id: int) -> T
     Executa a busca A* para encontrar o caminho de menor custo entre dois filmes.
 
     Retorna:
-    - Lista de IDs do caminho do start_id até goal_id (inclusive).
+    - Lista de IDs do caminho do start_id até goal_id.
     - Custo total do caminho.
 
     Retorna (None, inf) se não encontrar caminho ou IDs inválidos.
@@ -80,7 +80,6 @@ def a_star_search(graph: Dict[int, MovieNode], start_id: int, goal_id: int) -> T
             while current.id in came_from:
                 current = came_from[current.id]
                 path.append(current.id)
-            # path está do goal até o start, logo inverter para retornar do start ao goal
             return path[::-1], g_score[goal_id]
 
         for neighbor, weight in current.neighbors:
