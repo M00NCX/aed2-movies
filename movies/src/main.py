@@ -7,6 +7,7 @@ import os
 import requests
 from pydantic import BaseModel
 from typing import List, Optional
+from .aStar import build_graph, a_star_search
 
 load_dotenv()
 app = FastAPI()
@@ -73,9 +74,9 @@ def get_director(movie_id: int) -> Optional[str]:
 
 @app.get("/recommendations/{movie_title}", response_model=RecommendationResponse)
 def get_recommendations_from_tmdb(movie_title: str):
-    if not TMDB_API_KEY: raise HTTPException(status_code=500, detail="Chave da API não configurada.")
-    
-    # --- PARTE 3: USO DA VARIÁVEL GLOBAL DENTRO DO ENDPOINT ---
+    if not TMDB_API_KEY:
+        raise HTTPException(status_code=500, detail="Chave da API não configurada.")
+     # --- PARTE 3: USO DA VARIÁVEL GLOBAL DENTRO DO ENDPOINT ---
     def process_movie_data(movie_data: dict) -> dict:
         genre_ids = movie_data.get("genre_ids", [])
         # Esta linha agora funciona, pois GENRE_MAP existe no escopo global
@@ -106,3 +107,80 @@ def get_recommendations_from_tmdb(movie_title: str):
         return {"searched_movie": processed_searched_movie, "recommendations": processed_recommendations}
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Erro de comunicação com TMDB: {e}")
+
+    # 1. Busca o filme inicial para pegar seu ID e dados
+    searched_movie_data = find_movie_by_title(movie_title)
+    start_movie_id = searched_movie_data["id"]
+
+    # 2. Busca um conjunto maior de filmes para construir o grafo
+    # Usamos o endpoint 'discover' do TMDB para pegar filmes populares dos mesmos gêneros
+    main_genre_id = searched_movie_data.get("genre_ids", [])[0] if searched_movie_data.get("genre_ids") else None
+    
+    movie_pool = get_movie_pool(genre_id=main_genre_id)
+    
+    # Adiciona o filme buscado ao pool, caso ele não esteja lá
+    if not any(m['id'] == start_movie_id for m in movie_pool):
+        movie_pool.append(searched_movie_data)
+
+    # 3. Enriquece os dados (adiciona diretor, etc.)
+    full_movie_data = [process_movie_data(movie) for movie in movie_pool]
+    
+    # 4. Constrói o grafo em memória
+    graph = build_graph(full_movie_data)
+    
+    # Verifica se o filme inicial está no grafo
+    if start_movie_id not in graph:
+        raise HTTPException(status_code=404, detail="Não foi possível processar o filme inicial no grafo.")
+
+    # 5. Executa o A* do filme inicial para todos os outros e ranqueia
+    recommendations_with_cost = []
+    for movie_id in graph:
+        if movie_id != start_movie_id:
+            # Roda o A* para encontrar o caminho e o custo
+            path, cost = a_star_search(graph, start_movie_id, movie_id)
+            if path:  # Se um caminho foi encontrado
+                recommendations_with_cost.append({"id": movie_id, "cost": cost})
+
+    # Ordena os resultados pelo menor custo
+    sorted_recommendations = sorted(recommendations_with_cost, key=lambda x: x["cost"])
+    
+    # Pega os 12 melhores resultados (ou quantos você quiser)
+    top_recommendation_ids = {rec["id"] for rec in sorted_recommendations[:12]}
+    
+    # Filtra a lista de filmes completa para retornar apenas os melhores
+    final_recommendations = [movie for movie in full_movie_data if movie["id"] in top_recommendation_ids]
+
+    # Processa o filme principal também
+    processed_searched_movie = next((m for m in full_movie_data if m['id'] == start_movie_id), searched_movie_data)
+
+    return {"searched_movie": processed_searched_movie, "recommendations": final_recommendations}
+
+# --- Funções auxiliares (coloque-as em seu main.py) ---
+def find_movie_by_title(title: str) -> dict:
+    search_url = f"{TMDB_API_URL}/search/movie"
+    params = {"api_key": TMDB_API_KEY, "query": title, "language": "pt-BR"}
+    response = requests.get(search_url, params=params)
+    response.raise_for_status()
+    results = response.json().get("results")
+    if not results:
+        raise HTTPException(status_code=404, detail=f"Filme '{title}' não encontrado.")
+    return results[0]
+
+def get_movie_pool(genre_id: Optional[int] = None, page_limit: int = 3) -> List[dict]:
+    pool = []
+    discover_url = f"{TMDB_API_URL}/discover/movie"
+    for page in range(1, page_limit + 1):
+        params = {
+            "api_key": TMDB_API_KEY,
+            "language": "pt-BR",
+            "sort_by": "popularity.desc",
+            "include_adult": False,
+            "page": page,
+            "with_genres": str(genre_id) if genre_id else ""
+        }
+        response = requests.get(discover_url, params=params)
+        pool.extend(response.json().get("results", []))
+    
+    return pool
+    
+   
