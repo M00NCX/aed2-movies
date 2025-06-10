@@ -85,7 +85,7 @@ def find_movie_by_title(title: str) -> dict:
     return results[0]
 
 def get_director(movie_id: int) -> Optional[str]:
-    if not movie_id: return None
+    if not movie_id or not TMDB_API_KEY: return None
     credits_url = f"{TMDB_API_URL}/movie/{movie_id}/credits"
     params = {"api_key": TMDB_API_KEY, "language": "pt-BR"}
     try:
@@ -133,12 +133,8 @@ def get_movie_pool_from_tmdb(movie_id: int) -> List[dict]:
     return response.json().get("results", [])
 
 # --- 6. ENDPOINTS DA API ---
-
-# ---- CORREÇÃO AQUI ----
-# O endpoint /genres foi adicionado para que o frontend possa buscar a lista de gêneros.
 @app.get("/genres")
 def get_genres_endpoint():
-    """Retorna o mapa de gêneros de filmes que foi carregado na inicialização."""
     return GENRE_MAP
 
 @app.get("/recommendations/{movie_title}", response_model=RecommendationResponse)
@@ -146,6 +142,7 @@ def get_recommendations(movie_title: str):
     if not driver:
         raise HTTPException(status_code=503, detail="Serviço de banco de dados indisponível.")
 
+    # ETAPA 1: Popular o Neo4j com dados do TMDB
     try:
         start_movie_data = find_movie_by_title(movie_title)
         start_movie_id = start_movie_data["id"]
@@ -156,10 +153,11 @@ def get_recommendations(movie_title: str):
             for movie in all_movies_to_process:
                 enriched_movie = process_movie_data(movie)
                 session.write_transaction(create_movie_in_neo4j, enriched_movie)
-        print(f"--- Grafo populado com {len(all_movies_to_process)} filmes para a busca '{movie_title}' ---")
+        print(f"--- Grafo populado com {len(all_movies_to_process)} filmes ---")
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Erro de comunicação com TMDB: {e}")
     
+    # ETAPA 2: Ler do Neo4j para obter candidatos a recomendação
     with driver.session() as session:
         result = session.run("""
             MATCH (start:Movie {tmdbId: $start_id})
@@ -169,22 +167,28 @@ def get_recommendations(movie_title: str):
             UNWIND recommendations as rec
             WITH start, rec
             WHERE rec IS NOT NULL AND start <> rec
-            RETURN DISTINCT rec
+            RETURN DISTINCT rec.tmdbId as id, rec.title as title
             LIMIT 100
         """, start_id=start_movie_id)
-        movie_pool_from_neo4j = [dict(record["rec"]) for record in result]
+        movie_pool_from_neo4j = [dict(record) for record in result]
     
     if not movie_pool_from_neo4j:
         raise HTTPException(status_code=404, detail="Não foram encontradas recomendações conectadas no grafo.")
     
-    if not any(m.get('tmdbId') == start_movie_id for m in movie_pool_from_neo4j):
-        start_movie_data['tmdbId'] = start_movie_data['id']
-        movie_pool_from_neo4j.append(start_movie_data)
-
-    full_movie_data = [process_movie_data(movie) for movie in movie_pool_from_neo4j]
-    graph = build_graph(full_movie_data)
-    print("--- Grafo construído:", graph)
-
+    # ETAPA 3: "Hidratar" os candidatos com dados completos do TMDB para o A*
+    hydrated_movie_pool = []
+    for movie_stub in movie_pool_from_neo4j:
+        details = find_movie_by_title(movie_stub['title']) # Re-busca pelo título para ter todos os dados
+        if details:
+            hydrated_movie_pool.append(process_movie_data(details))
+            
+    # Adiciona o filme inicial à lista hidratada
+    processed_searched_movie = process_movie_data(start_movie_data)
+    if not any(m.get('id') == start_movie_id for m in hydrated_movie_pool):
+        hydrated_movie_pool.append(processed_searched_movie)
+    
+    # ETAPA 4: Construir o grafo em memória e rodar o A*
+    graph = build_graph(hydrated_movie_pool)
     if start_movie_id not in graph:
         raise HTTPException(status_code=404, detail="Filme inicial não pôde ser processado no grafo.")
 
@@ -192,29 +196,14 @@ def get_recommendations(movie_title: str):
     for movie_id in graph:
         if movie_id != start_movie_id:
             path, cost = a_star_search(graph, start_movie_id, movie_id)
-            print(f"Path from {start_movie_id} to {movie_id}: {path} with cost {cost}")
             if path:
                 recommendations_with_cost.append({"id": movie_id, "cost": cost})
 
+    # ETAPA 5: Preparar a resposta final para o frontend
     sorted_recommendations = sorted(recommendations_with_cost, key=lambda x: x["cost"])
     top_recommendation_ids = {rec["id"] for rec in sorted_recommendations[:12]}
-    final_recommendations = [
-        movie for movie in full_movie_data
-        if movie.get("id") in top_recommendation_ids or movie.get("tmdbId") in top_recommendation_ids
-    ]
-    processed_searched_movie = next((m for m in full_movie_data if m.get('id') == start_movie_id), start_movie_data)
-
-    return {"searched_movie": processed_searched_movie, "recommendations": final_recommendations}
-def get_recommendation_path_with_posters(graph, start_id, goal_id):
-    path_ids, cost = a_star_search(graph, start_id, goal_id)
-    if path_ids is None:
-        return None
     
-    # Supomos que graph tem os MovieNode já com as info necessárias
-    path_info = [{
-        "id": node_id,
-        "title": graph[node_id].title,
-        "poster_url": graph[node_id].poster_url if hasattr(graph[node_id], 'poster_url') else None
-    } for node_id in path_ids]
-
-    return path_info, cost
+    # Filtra a lista de filmes JÁ HIDRATADA para pegar apenas os vencedores
+    final_recommendations = [movie for movie in hydrated_movie_pool if movie.get("id") in top_recommendation_ids]
+    
+    return {"searched_movie": processed_searched_movie, "recommendations": final_recommendations}
