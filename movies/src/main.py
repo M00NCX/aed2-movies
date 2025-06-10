@@ -84,20 +84,19 @@ def find_movie_by_title(title: str) -> dict:
         raise HTTPException(status_code=404, detail=f"Filme '{title}' não encontrado.")
     return results[0]
 
-def get_movie_details_from_tmdb(movie_id: int) -> Optional[dict]:
-    """Busca os detalhes completos de um ÚNICO filme no TMDB."""
-    details_url = f"{TMDB_API_URL}/movie/{movie_id}"
+def get_director(movie_id: int) -> Optional[str]:
+    if not movie_id: return None
+    credits_url = f"{TMDB_API_URL}/movie/{movie_id}/credits"
     params = {"api_key": TMDB_API_KEY, "language": "pt-BR"}
     try:
-        response = requests.get(details_url, params=params)
+        response = requests.get(credits_url, params=params)
         response.raise_for_status()
-        return response.json()
+        for member in response.json().get("crew", []):
+            if member.get("job") == "Director":
+                return member.get("name")
+        return None
     except requests.exceptions.RequestException:
         return None
-
-def get_director(movie_id: int) -> Optional[str]:
-    # ... (código da função get_director) ...
-    return "Diretor Exemplo" # Placeholder
 
 def process_movie_data(movie_data: dict) -> dict:
     if 'tmdbId' in movie_data and 'id' not in movie_data:
@@ -108,8 +107,23 @@ def process_movie_data(movie_data: dict) -> dict:
     return movie_data
 
 def create_movie_in_neo4j(tx, movie_data: dict):
-    # ... (código da função create_movie_in_neo4j) ...
-    pass # Placeholder
+    tx.run("""
+        MERGE (m:Movie {tmdbId: $movie.id})
+        ON CREATE SET m.title = $movie.title, m.release_date = $movie.release_date, m.popularity = $movie.popularity
+    """, movie=movie_data)
+    if movie_data.get("director"):
+        tx.run("""
+            MATCH (m:Movie {tmdbId: $movie.id})
+            MERGE (p:Person {name: $movie.director})
+            MERGE (p)-[:DIRECTED]->(m)
+        """, movie=movie_data)
+    if movie_data.get("genre"):
+        tx.run("""
+            MATCH (m:Movie {tmdbId: $movie.id})
+            UNWIND $movie.genre as genre_name
+            MERGE (g:Genre {name: genre_name})
+            MERGE (m)-[:HAS_GENRE]->(g)
+        """, movie=movie_data)
 
 def get_movie_pool_from_tmdb(movie_id: int) -> List[dict]:
     reco_url = f"{TMDB_API_URL}/movie/{movie_id}/recommendations"
@@ -119,8 +133,12 @@ def get_movie_pool_from_tmdb(movie_id: int) -> List[dict]:
     return response.json().get("results", [])
 
 # --- 6. ENDPOINTS DA API ---
+
+# ---- CORREÇÃO AQUI ----
+# O endpoint /genres foi adicionado para que o frontend possa buscar a lista de gêneros.
 @app.get("/genres")
 def get_genres_endpoint():
+    """Retorna o mapa de gêneros de filmes que foi carregado na inicialização."""
     return GENRE_MAP
 
 @app.get("/recommendations/{movie_title}", response_model=RecommendationResponse)
@@ -151,7 +169,7 @@ def get_recommendations(movie_title: str):
             UNWIND recommendations as rec
             WITH start, rec
             WHERE rec IS NOT NULL AND start <> rec
-            RETURN DISTINCT rec { .tmdbId, .title }
+            RETURN DISTINCT rec
             LIMIT 100
         """, start_id=start_movie_id)
         movie_pool_from_neo4j = [dict(record["rec"]) for record in result]
@@ -159,12 +177,14 @@ def get_recommendations(movie_title: str):
     if not movie_pool_from_neo4j:
         raise HTTPException(status_code=404, detail="Não foram encontradas recomendações conectadas no grafo.")
     
-    full_movie_data_for_graph = [process_movie_data(movie) for movie in movie_pool_from_neo4j]
-    if not any(m.get('id') == start_movie_id for m in full_movie_data_for_graph):
-        full_movie_data_for_graph.append(process_movie_data(start_movie_data))
+    if not any(m.get('tmdbId') == start_movie_id for m in movie_pool_from_neo4j):
+        start_movie_data['tmdbId'] = start_movie_data['id']
+        movie_pool_from_neo4j.append(start_movie_data)
 
-    graph = build_graph(full_movie_data_for_graph)
-    
+    full_movie_data = [process_movie_data(movie) for movie in movie_pool_from_neo4j]
+    graph = build_graph(full_movie_data)
+    print("--- Grafo construído:", graph)
+
     if start_movie_id not in graph:
         raise HTTPException(status_code=404, detail="Filme inicial não pôde ser processado no grafo.")
 
@@ -172,19 +192,29 @@ def get_recommendations(movie_title: str):
     for movie_id in graph:
         if movie_id != start_movie_id:
             path, cost = a_star_search(graph, start_movie_id, movie_id)
+            print(f"Path from {start_movie_id} to {movie_id}: {path} with cost {cost}")
             if path:
                 recommendations_with_cost.append({"id": movie_id, "cost": cost})
 
     sorted_recommendations = sorted(recommendations_with_cost, key=lambda x: x["cost"])
     top_recommendation_ids = {rec["id"] for rec in sorted_recommendations[:12]}
-
-    # --- PASSO DE HIDRATAÇÃO ---
-    final_recommendations = []
-    for movie_id in top_recommendation_ids:
-        details = get_movie_details_from_tmdb(movie_id)
-        if details:
-            final_recommendations.append(process_movie_data(details))
-            
-    processed_searched_movie = process_movie_data(start_movie_data)
+    final_recommendations = [
+        movie for movie in full_movie_data
+        if movie.get("id") in top_recommendation_ids or movie.get("tmdbId") in top_recommendation_ids
+    ]
+    processed_searched_movie = next((m for m in full_movie_data if m.get('id') == start_movie_id), start_movie_data)
 
     return {"searched_movie": processed_searched_movie, "recommendations": final_recommendations}
+def get_recommendation_path_with_posters(graph, start_id, goal_id):
+    path_ids, cost = a_star_search(graph, start_id, goal_id)
+    if path_ids is None:
+        return None
+    
+    # Supomos que graph tem os MovieNode já com as info necessárias
+    path_info = [{
+        "id": node_id,
+        "title": graph[node_id].title,
+        "poster_url": graph[node_id].poster_url if hasattr(graph[node_id], 'poster_url') else None
+    } for node_id in path_ids]
+
+    return path_info, cost
