@@ -1,4 +1,5 @@
 export interface Movie {
+  popularity: number;
   genre: string[];
   id: number;
   title: string;

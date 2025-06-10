@@ -3,18 +3,20 @@ import type { Movie } from '../types/movie';
 
 interface MovieCardProps {
   movie: Movie;
+  onClick: (movie: Movie) => void;
 }
 
-const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
+const MovieCard: React.FC<MovieCardProps> = ({ movie, onClick }) => {
   const imageUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
     : 'https://via.placeholder.com/500x750?text=No+Image';
 
   return (
     <div
+      onClick={() => onClick(movie)} // Quando clicado, chama a função passando os dados do filme
       className="group relative cursor-pointer overflow-hidden rounded-lg shadow-md
                    transition-all duration-300 ease-in-out
-                   hover:scale-105 hover:shadow-xl hover:shadow-purple-400/30 
+                   hover:scale-105 hover:shadow-xl hover:shadow-purple-500/30 
                    hover:ring-2 hover:ring-purple-500"
     >
       <img
