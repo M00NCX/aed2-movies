@@ -1,29 +1,38 @@
+// src/pages/ResultsPage.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { RecommendationResponse, Movie } from '../types/movie';
 import axios from 'axios';
 
+// Imports da biblioteca Swiper para o carrossel
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Grid, Navigation } from 'swiper/modules';
 import type { Swiper as SwiperCore } from 'swiper/types';
 
+// Importa os arquivos de estilo CSS necessários para o Swiper
 import 'swiper/css';
 import 'swiper/css/grid';
 import 'swiper/css/navigation';
 
+// Importa os seus componentes customizados
 import MovieCard from '../components/MovieCard';
 import MovieDetailsModal from '../components/MovieDetailsModal';
 
+// Define a "forma" das props que este componente espera receber
 interface ResultsPageProps {
   data: RecommendationResponse;
   onGoBack: () => void;
 }
 
+// Tipo para a lista de gêneros que vamos buscar da API
 type Genre = {
   id: number;
   name: string;
 };
 
 const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
+  // --- Estados do Componente ---
+
   const [allGenres, setAllGenres] = useState<Genre[]>([]);
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [filteredMovies, setFilteredMovies] = useState<Movie[]>(
@@ -32,6 +41,8 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
 
   const [swiperInstance, setSwiperInstance] = useState<SwiperCore | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+
+  // --- Efeitos (useEffect) e Memos (useMemo) ---
 
   const genreCounts = useMemo(() => {
     const counts: { [key: number]: number } = {};
@@ -74,6 +85,7 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
   return (
     <>
       <div className="w-full max-w-7xl mx-auto px-4 py-8">
+        {/* Cabeçalho da Página */}
         <div className="flex flex-col md:flex-row justify-between items-center my-4 gap-4">
           <h2 className="text-3xl font-bold text-gray-800 text-center md:text-left">
             Filmes similares a{' '}
@@ -115,7 +127,10 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
           </div>
         </div>
 
-        <div className="relative mt-8 min-h-[400px]">
+        {/* Contêiner do Carrossel */}
+        <div className="relative mt-8 min-h-[400px] group">
+          {' '}
+          {/* Adicionado 'group' aqui para controlar a visibilidade dos botões */}
           <Swiper
             onSwiper={setSwiperInstance}
             modules={[Grid, Navigation]}
@@ -145,53 +160,57 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
               </SwiperSlide>
             ))}
           </Swiper>
-
           {filteredMovies.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center text-gray-500">
               <p>Nenhum filme encontrado para o gênero selecionado.</p>
             </div>
           )}
-
-          <button
-            onClick={() => swiperInstance?.slidePrev()}
-            onMouseEnter={() => swiperInstance?.slidePrev()}
-            className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-4 sm:-translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 md:opacity-100 group-hover:opacity-100"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={() => swiperInstance?.slideNext()}
-            onMouseEnter={() => swiperInstance?.slideNext()}
-            className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-4 sm:translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 md:opacity-100 group-hover:opacity-100"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
+          {/* ---- CORREÇÃO AQUI ---- */}
+          {/* Adicionamos uma condição para renderizar os botões apenas se houver filmes */}
+          {filteredMovies.length > 0 && (
+            <>
+              <button
+                onClick={() => swiperInstance?.slidePrev()}
+                onMouseEnter={() => swiperInstance?.slidePrev()}
+                className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-4 sm:-translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 md:opacity-100 group-hover:opacity-100"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => swiperInstance?.slideNext()}
+                onMouseEnter={() => swiperInstance?.slideNext()}
+                className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-4 sm:translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 md:opacity-100 group-hover:opacity-100"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
