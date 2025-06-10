@@ -49,7 +49,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-pink-50 flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-pink-50 flex flex-col overflow-hidden">
       <Header />
 
       <main className="flex-1 container mx-auto flex flex-col justify-center items-center p-4">

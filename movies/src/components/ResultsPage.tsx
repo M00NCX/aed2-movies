@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { RecommendationResponse, Movie } from '../types/movie';
 
-import FilterBar from '../components/FilterBar';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Grid, Navigation } from 'swiper/modules';
+import type { Swiper as SwiperCore } from 'swiper/types';
+
+import 'swiper/css';
+import 'swiper/css/grid';
+import 'swiper/css/navigation';
+
 import MovieCard from '../components/MovieCard';
 
 interface ResultsPageProps {
@@ -10,28 +17,11 @@ interface ResultsPageProps {
 }
 
 const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
-  const [filteredMovies, setFilteredMovies] = useState<Movie[]>(
-    data.recommendations
-  );
-  const [selectedGenre, setSelectedGenre] = useState('all');
-
-  const availableGenres = Array.from(
-    new Set(data.recommendations.flatMap((movie) => movie.genre || []))
-  );
-
-  useEffect(() => {
-    if (selectedGenre === 'all') {
-      setFilteredMovies(data.recommendations);
-    } else {
-      const newFilteredMovies = data.recommendations.filter((movie) =>
-        movie.genre?.includes(selectedGenre)
-      );
-      setFilteredMovies(newFilteredMovies);
-    }
-  }, [selectedGenre, data.recommendations]);
+  const movies = data.recommendations;
+  const [swiperInstance, setSwiperInstance] = useState<SwiperCore | null>(null);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4">
+    <div className="w-full max-w-7xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center my-4">
         <h2 className="text-3xl font-bold text-gray-800">
           Filmes similares a{' '}
@@ -45,19 +35,90 @@ const ResultsPage: React.FC<ResultsPageProps> = ({ data, onGoBack }) => {
         </button>
       </div>
 
-      <FilterBar genres={availableGenres} onGenreChange={setSelectedGenre} />
+      <div className="relative mt-8">
+        <Swiper
+          onSwiper={setSwiperInstance}
+          modules={[Grid, Navigation]}
+          spaceBetween={16}
+          className="!py-4 !pb-10"
+          breakpoints={{
+            320: {
+              slidesPerView: 2,
+              slidesPerGroup: 2,
+              grid: {
+                rows: 2,
+                fill: 'row',
+              },
+            },
 
-      {filteredMovies.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {filteredMovies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} />
+            768: {
+              slidesPerView: 4,
+              slidesPerGroup: 4,
+              grid: {
+                rows: 2,
+                fill: 'row',
+              },
+            },
+
+            1024: {
+              slidesPerView: 6,
+              slidesPerGroup: 1,
+              grid: {
+                rows: 2,
+                fill: 'row',
+              },
+            },
+          }}
+        >
+          {movies.map((movie) => (
+            <SwiperSlide key={movie.id}>
+              {/* O MovieCard não precisa de alterações */}
+              <MovieCard movie={movie} />
+            </SwiperSlide>
           ))}
-        </div>
-      ) : (
-        <p className="text-center text-gray-500 mt-8">
-          Nenhum filme encontrado com o filtro selecionado.
-        </p>
-      )}
+        </Swiper>
+
+        <button
+          onClick={() => swiperInstance?.slidePrev()}
+          onMouseEnter={() => swiperInstance?.slidePrev()}
+          className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-4 sm:-translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 sm:opacity-100 group-hover:opacity-100"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+        <button
+          onClick={() => swiperInstance?.slideNext()}
+          onMouseEnter={() => swiperInstance?.slideNext()}
+          className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-4 sm:translate-x-10 z-10 p-2 bg-white/80 rounded-full shadow-lg hover:bg-white transition opacity-0 sm:opacity-100 group-hover:opacity-100"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 sm:h-8 w-6 sm:w-8 text-gray-800"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };
